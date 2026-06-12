@@ -347,13 +347,13 @@ function applicationCounts_() {
   return counts;
 }
 
-/** 세례교인 판정: 세례여부 칸 값이 Y, 세례, 입교(또는 세례교인)면 인정. '유아세례'만 있는 경우는 제외 */
+/** 세례교인 판정: 세례여부 칸 값이 Y, 세례, 입교, 영세면 인정. '유아세례'만 있는 경우는 제외 */
 function isBaptized_(v) {
   const s = String(v || '').trim().toUpperCase();
   if (!s || s === 'N') return false;
   if (s === 'Y') return true;
   if (s.indexOf('유아세례') !== -1 && s.indexOf('입교') === -1) return false;
-  return s.indexOf('세례') !== -1 || s.indexOf('입교') !== -1;
+  return s.indexOf('세례') !== -1 || s.indexOf('입교') !== -1 || s.indexOf('영세') !== -1;
 }
 
 /** 생년월일을 yyyy-MM-dd로 정규화 (날짜셀, 1980.05.14, 1980/05/14, 19800514, 800514 모두 처리) */

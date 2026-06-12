@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>높은뜻푸른교회 교육훈련 통합 신청</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --navy: #1b2a4a;
+    --navy-deep: #131f38;
+    --navy-soft: #2e4470;
+    --gold: #c9a24b;
+    --gold-soft: #e8d9b0;
+    --paper: #f7f6f2;
+    --white: #ffffff;
+    --ink: #22293a;
+    --ink-soft: #6b7280;
+    --line: #e5e3dc;
+    --red: #b4413c;
+    --green: #3a7a52;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    background: var(--navy);
+    color: var(--white);
+    padding: 28px 20px 24px;
+    text-align: center;
+  }
+  header .church { font-size: 13px; letter-spacing: 3px; color: var(--gold-soft); margin-bottom: 6px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  header .gold-rule { width: 36px; height: 2px; background: var(--gold); margin: 14px auto 0; }
+
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ── 과정 카드 ── */
+  .section-label {
+    font-size: 13px; font-weight: 600; color: var(--ink-soft);
+    letter-spacing: 1px; margin: 8px 0 12px;
+  }
+  .card {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .course-card { cursor: pointer; transition: border-color .15s, transform .15s; }
+  .course-card:active { transform: scale(.99); }
+  .course-card:hover { border-color: var(--gold); }
+  .course-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .course-name { font-size: 17px; font-weight: 700; color: var(--navy); }
+  .badge {
+    flex-shrink: 0; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; border-radius: 99px;
+  }
+  .badge.open { background: #eef4ee; color: var(--green); }
+  .badge.full { background: #f6ecec; color: var(--red); }
+  .course-desc { font-size: 14px; color: var(--ink-soft); margin-top: 6px; }
+  .course-meta { margin-top: 12px; font-size: 13px; color: var(--ink); }
+  .course-meta div { display: flex; gap: 8px; margin-top: 2px; }
+  .course-meta .k { color: var(--gold); font-weight: 600; min-width: 56px; }
+  .empty { text-align: center; color: var(--ink-soft); padding: 48px 0; font-size: 15px; }
+
+  /* ── 신청 폼 ── */
+  .back-btn {
+    background: none; border: none; color: var(--ink-soft);
+    font-size: 14px; font-family: inherit; cursor: pointer; padding: 4px 0; margin-bottom: 10px;
+  }
+  .form-title { font-size: 19px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .form-sub { font-size: 13px; color: var(--ink-soft); margin-bottom: 16px; }
+  .notice {
+    font-size: 13.5px; background: #fdf8ec; border: 1px solid var(--gold-soft);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; color: #7a6428;
+  }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 5px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 11px 13px; font-size: 15px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink);
+  }
+  .field input, .field select { height: 46px; }
+  .field input[type="date"] {
+    -webkit-appearance: none; appearance: none;
+    display: flex; align-items: center;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--gold);
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-section {
+    font-size: 14px; font-weight: 700; color: var(--navy);
+    margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line);
+  }
+  .form-section .sub { font-weight: 400; font-size: 12.5px; color: var(--ink-soft); }
+  .btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; font-family: inherit;
+    border: none; border-radius: 10px; cursor: pointer; transition: opacity .15s;
+  }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-primary { background: var(--navy); color: var(--white); }
+  .btn-primary:not(:disabled):hover { background: var(--navy-soft); }
+  .btn-gold { background: var(--gold); color: var(--navy-deep); }
+  .error-msg { color: var(--red); font-size: 13.5px; margin-top: 10px; text-align: center; }
+
+  .greeting {
+    background: var(--navy); color: var(--white);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; font-size: 14.5px;
+  }
+  .greeting b { color: var(--gold-soft); }
+
+  /* ── 완료 화면 ── */
+  .done { text-align: center; padding: 40px 0; }
+  .done .mark {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--navy);
+    color: var(--gold); font-size: 26px; line-height: 56px; margin: 0 auto 16px;
+  }
+  .done h2 { font-size: 20px; color: var(--navy); margin-bottom: 8px; }
+  .done p { font-size: 14.5px; color: var(--ink-soft); }
+
+  .loading { text-align: center; padding: 48px 0; color: var(--ink-soft); font-size: 14px; }
+  .spinner {
+    width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--gold);
+    border-radius: 50%; margin: 0 auto 12px; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer { text-align: center; font-size: 12px; color: #a8a69e; padding: 0 0 32px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="church">높은뜻푸른교회</div>
+  <h1>교육훈련 통합 신청</h1>
+  <div class="gold-rule"></div>
+</header>
+
+<main id="app"></main>
+<footer>높은뜻푸른교회 교육·훈련</footer>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxdmjhogAVaMgfEuxOF2PBhR8VA7FRLqCgkwhmRHXvzMA3r-IDkpHCf99kXT84OYKKvqQ/exec';
+
+const app = document.getElementById('app');
+let courses = [];
+let current = null;   // 선택한 과정
+let member = null;    // 본인 확인된 교적 정보
+let isMember = false;
+let manualMode = false;
+
+async function api(payload) {
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+  return res.json();
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ───────── 과정 목록 ───────── */
+async function showList() {
+  current = null; member = null; isMember = false; manualMode = false;
+  app.innerHTML = '<div class="loading"><div class="spinner"></div>과정을 불러오는 중입니다…</div>';
+  try {
+    const data = await api({ action: 'getCourses' });
+    if (!data.ok) throw new Error(data.error);
+    courses = data.courses;
+  } catch (e) {
+    app.innerHTML = '<div class="empty">과정 목록을 불러오지 못했습니다.<br>잠시 후 다시 시도해 주세요.</div>';
+    return;
+  }
+  if (courses.length === 0) {
+    app.innerHTML = '<div class="empty">현재 신청 가능한 과정이 없습니다.</div>';
+    return;
+  }
+  let html = '<div class="section-label">모집 중인 과정</div>';
+  courses.forEach((c, i) => {
+    const remain = c.capacity > 0 ? (c.capacity - c.applied) : null;
+    const badge = c.full
+      ? '<span class="badge full">마감</span>'
+      : `<span class="badge open">${remain !== null ? '잔여 ' + remain + '명' : '모집중'}</span>`;
+    html += `
+      <div class="card course-card" onclick="openCourse(${i})">
+        <div class="course-top">
+          <div class="course-name">${esc(c.name)}</div>${badge}
+        </div>
+        ${c.description ? `<div class="course-desc">${esc(c.description)}</div>` : ''}
+        <div class="course-meta">
+          ${c.period ? `<div><span class="k">교육기간</span><span>${esc(c.period)}</span></div>` : ''}
+          ${c.applyEnd ? `<div><span class="k">신청마감</span><span>${esc(c.applyEnd)}</span></div>` : ''}
+          ${c.eligibility && c.eligibility !== '전체' ? `<div><span class="k">신청자격</span><span>${esc(c.eligibility === '세례교인' ? '등록 세례교인' : '등록 교인')}</span></div>` : ''}
+        </div>
+      </div>`;
+  });
+  app.innerHTML = html;
+}
+
+/* ───────── 본인 확인 ───────── */
+function openCourse(i) {
+  current = courses[i];
+  if (current.full) { alert('정원이 마감된 과정입니다.'); return; }
+  app.innerHTML = `
+    <button class="back-btn" onclick="showList()">← 과정 목록으로</button>
+    <div class="card">
+      <div class="form-title">${esc(current.name)}</div>
+      <div class="form-sub">신청을 위해 본인 확인을 진행합니다.</div>
+      ${current.eligibility === '교인' ? '<div class="notice">이 과정은 <b>등록 교인</b>만 신청하실 수 있습니다.</div>' : ''}
+      ${current.eligibility === '세례교인' ? '<div class="notice">이 과정은 <b>등록 세례교인</b>만 신청하실 수 있습니다.</div>' : ''}
+      <div class="field">
+        <label>이름</label>
+        <input id="v-name" type="text" placeholder="홍길동" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>전화번호 뒤 4자리</label>
+        <input id="v-last4" type="tel" inputmode="numeric" maxlength="4" placeholder="0000">
+      </div>
+      <button class="btn btn-primary" id="v-btn" onclick="verify()">확인</button>
+      <div class="error-msg" id="v-err"></div>
+    </div>`;
+  document.getElementById('v-name').focus();
+}
+
+async function verify() {
+  const name = document.getElementById('v-name').value.trim();
+  const last4 = document.getElementById('v-last4').value.trim();
+  const err = document.getElementById('v-err');
+  const btn = document.getElementById('v-btn');
+  err.textContent = '';
+  if (!name || last4.length !== 4) { err.textContent = '이름과 전화번호 뒤 4자리를 입력해 주세요.'; return; }
+
+  btn.disabled = true; btn.textContent = '확인 중…';
+  try {
+    const data = await api({ action: 'verifyMember', name, last4 });
+    if (!data.ok) throw new Error(data.error);
+    const restricted = current.eligibility === '교인' || current.eligibility === '세례교인';
+    if (data.found) {
+      if (current.eligibility === '세례교인' && !data.member.baptized) {
+        err.textContent = '이 과정은 세례교인(입교 포함)만 신청하실 수 있습니다. 문의는 교회 사무실로 부탁드립니다.';
+        btn.disabled = false; btn.textContent = '확인';
+        return;
+      }
+      member = data.member; isMember = true; manualMode = false;
+      showForm();
+    } else if (restricted) {
+      err.textContent = data.needFullPhone
+        ? '동명이인 정보가 확인되어 자동 처리가 어렵습니다. 교회 사무실로 문의해 주세요.'
+        : '교적에서 정보를 찾지 못했습니다. 이 과정은 등록 교인만 신청 가능하니, 입력하신 이름과 전화번호를 다시 확인하시거나 교회 사무실로 문의해 주세요.';
+      btn.disabled = false; btn.textContent = '확인';
+    } else {
+      member = { name, phone: '', birth: '', gender: '', group: '' };
+      isMember = false; manualMode = true;
+      showForm(data.needFullPhone
+        ? '같은 이름·번호의 등록 정보가 여러 건 확인되어, 정보를 직접 입력해 주시기 바랍니다.'
+        : '교적에서 정보를 찾지 못했습니다. 아래에 정보를 직접 입력해 주세요. (새가족·방문자도 신청하실 수 있습니다)');
+    }
+  } catch (e) {
+    err.textContent = '확인 중 오류가 발생했습니다. 다시 시도해 주세요.';
+    btn.disabled = false; btn.textContent = '확인';
+  }
+}
+
+/* ───────── 신청서 ───────── */
+function showForm(noticeText) {
+  const c = current;
+  const m = member;
+  const greeting = isMember
+    ? `<div class="greeting"><b>${esc(m.name)}</b> 님, 환영합니다.<br>교적 정보가 자동으로 입력되었습니다. 확인 후 신청해 주세요.</div>`
+    : '';
+  const notice = noticeText ? `<div class="notice">${esc(noticeText)}</div>` : '';
+  app.innerHTML = `
+    <button class="back-btn" onclick="showList()">← 과정 목록으로</button>
+    <div class="card">
+      <div class="form-title">${esc(c.name)} 신청서</div>
+      <div class="form-sub">${esc(c.period || '')}</div>
+      ${greeting}${notice}
+      ${c.sections && c.sections.length > 0 ? `
+      <div class="field">
+        <label>분반 선택</label>
+        <select id="f-section">
+          <option value="">분반을 선택해 주세요</option>
+          ${c.sections.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+        </select>
+      </div>` : ''}
+      <div class="field">
+        <label>이름</label>
+        <input id="f-name" type="text" value="${esc(m.name)}">
+      </div>
+      <div class="field">
+        <label>전화번호</label>
+        <input id="f-phone" type="tel" inputmode="numeric" placeholder="01012345678" value="${esc(m.phone)}">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>생년월일</label>
+          <input id="f-birth" type="date" value="${esc(m.birth)}">
+        </div>
+        <div class="field">
+          <label>성별</label>
+          <select id="f-gender">
+            <option value="">선택</option>
+            <option value="남" ${m.gender === '남' ? 'selected' : ''}>남</option>
+            <option value="여" ${m.gender === '여' ? 'selected' : ''}>여</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>초장 <span style="font-weight:400;color:var(--ink-soft)">(없으면 비워두세요)</span></label>
+        <input id="f-group" type="text" value="${esc(m.group)}">
+      </div>
+      ${c.formType === '유아세례' ? `
+      <div class="field">
+        <label>신청자 구분</label>
+        <select id="f-role">
+          <option value="">선택해 주세요</option>
+          <option value="아빠">아이의 아빠입니다</option>
+          <option value="엄마">아이의 엄마입니다</option>
+        </select>
+      </div>
+      <div class="form-section">자녀 정보</div>
+      <div class="field">
+        <label>자녀 이름</label>
+        <input id="f-child-name" type="text">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>자녀 생년월일</label>
+          <input id="f-child-birth" type="date">
+        </div>
+        <div class="field">
+          <label>자녀 성별</label>
+          <select id="f-child-gender">
+            <option value="">선택</option>
+            <option value="남">남</option>
+            <option value="여">여</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-section">배우자 정보 <span class="sub">(해당하는 경우 입력)</span></div>
+      <div class="field">
+        <label>배우자 이름</label>
+        <input id="f-spouse-name" type="text">
+      </div>
+      <div class="field">
+        <label>배우자 연락처</label>
+        <input id="f-spouse-phone" type="tel" inputmode="numeric" placeholder="01012345678">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>배우자 교회 등록</label>
+          <select id="f-spouse-reg">
+            <option value="">선택</option>
+            <option value="등록">등록 교인</option>
+            <option value="미등록">미등록</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>배우자 세례</label>
+          <select id="f-spouse-bap">
+            <option value="">선택</option>
+            <option value="세례·입교">세례·입교</option>
+            <option value="유아세례">유아세례만</option>
+            <option value="없음">없음</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-section" style="border-top:none;padding-top:0;margin-bottom:0"></div>` : ''}
+      ${c.extraQuestion ? `
+      <div class="field">
+        <label>${esc(c.extraQuestion)}</label>
+        <textarea id="f-extra" rows="2"></textarea>
+      </div>` : ''}
+      <button class="btn btn-gold" id="f-btn" onclick="submitApp()">신청하기</button>
+      <div class="error-msg" id="f-err"></div>
+    </div>`;
+}
+
+async function submitApp() {
+  const err = document.getElementById('f-err');
+  const btn = document.getElementById('f-btn');
+  err.textContent = '';
+  const payload = {
+    action: 'submitApplication',
+    courseId: current.courseId,
+    section: document.getElementById('f-section') ? document.getElementById('f-section').value : '',
+    name: document.getElementById('f-name').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    birth: document.getElementById('f-birth').value,
+    gender: document.getElementById('f-gender').value,
+    group: document.getElementById('f-group').value.trim(),
+    extraAnswer: document.getElementById('f-extra') ? document.getElementById('f-extra').value.trim() : '',
+    isMember: isMember
+  };
+  if (current.sections && current.sections.length > 0 && !payload.section) {
+    err.textContent = '분반을 선택해 주세요.'; return;
+  }
+  if (current.formType === '유아세례') {
+    payload.applicantRole = document.getElementById('f-role').value;
+    payload.childName = document.getElementById('f-child-name').value.trim();
+    payload.childBirth = document.getElementById('f-child-birth').value;
+    payload.childGender = document.getElementById('f-child-gender').value;
+    payload.spouseName = document.getElementById('f-spouse-name').value.trim();
+    payload.spousePhone = document.getElementById('f-spouse-phone').value.trim();
+    payload.spouseRegistered = document.getElementById('f-spouse-reg').value;
+    payload.spouseBaptized = document.getElementById('f-spouse-bap').value;
+    if (!payload.applicantRole) { err.textContent = '신청자 구분(아빠/엄마)을 선택해 주세요.'; return; }
+    if (!payload.childName || !payload.childBirth || !payload.childGender) {
+      err.textContent = '자녀 이름·생년월일·성별을 모두 입력해 주세요.'; return;
+    }
+  }
+  if (!payload.name || payload.phone.replace(/\D/g, '').length < 9) {
+    err.textContent = '이름과 전화번호를 확인해 주세요.'; return;
+  }
+  btn.disabled = true; btn.textContent = '신청 중…';
+  try {
+    const data = await api(payload);
+    if (!data.ok) { err.textContent = data.error; btn.disabled = false; btn.textContent = '신청하기'; return; }
+    showDone(payload.name);
+  } catch (e) {
+    err.textContent = '신청 중 오류가 발생했습니다. 다시 시도해 주세요.';
+    btn.disabled = false; btn.textContent = '신청하기';
+  }
+}
+
+function showDone(name) {
+  app.innerHTML = `
+    <div class="done">
+      <div class="mark">✓</div>
+      <h2>신청이 완료되었습니다</h2>
+      <p><b>${esc(name)}</b> 님의 <b>${esc(current.name)}</b> 신청이<br>정상적으로 접수되었습니다.</p>
+      <br>
+      <button class="btn btn-primary" style="max-width:240px" onclick="showList()">과정 목록으로</button>
+    </div>`;
+}
+
+showList();
+</script>
+</body>
+</html>

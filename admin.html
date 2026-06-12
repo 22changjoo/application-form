@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>교육훈련 통합 신청 — 관리자</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --navy: #1b2a4a; --navy-deep: #131f38; --navy-soft: #2e4470;
+    --gold: #c9a24b; --gold-soft: #e8d9b0;
+    --paper: #f7f6f2; --white: #ffffff;
+    --ink: #22293a; --ink-soft: #6b7280; --line: #e5e3dc;
+    --red: #b4413c; --green: #3a7a52;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--paper); color: var(--ink); line-height: 1.6; }
+
+  header { background: var(--navy); color: var(--white); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header .title { font-size: 17px; font-weight: 700; }
+  header .title span { color: var(--gold-soft); font-size: 13px; font-weight: 400; margin-left: 8px; }
+  header button { background: none; border: 1px solid rgba(255,255,255,.3); color: var(--white); font-size: 13px; font-family: inherit; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  .card { background: var(--white); border: 1px solid var(--line); border-radius: 12px; padding: 22px; margin-bottom: 14px; }
+  .section-title { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+
+  .btn { font-family: inherit; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: opacity .15s; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-primary { background: var(--navy); color: var(--white); padding: 10px 18px; font-size: 14px; }
+  .btn-gold { background: var(--gold); color: var(--navy-deep); padding: 10px 18px; font-size: 14px; }
+  .btn-sm { padding: 5px 10px; font-size: 12.5px; border-radius: 6px; }
+  .btn-line { background: var(--white); border: 1px solid var(--line); color: var(--ink); }
+  .btn-danger { background: #f6ecec; color: var(--red); }
+
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 12px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--gold); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { background: var(--paper); color: var(--navy); font-weight: 700; text-align: left; padding: 9px 10px; border-bottom: 2px solid var(--line); white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tr.cancelled td { color: #b8b6ae; text-decoration: line-through; }
+  tr.cancelled td:last-child { text-decoration: none; }
+  .table-wrap { overflow-x: auto; }
+
+  .badge { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }
+  .badge.open { background: #eef4ee; color: var(--green); }
+  .badge.closed { background: #f0efeb; color: var(--ink-soft); }
+  .badge.full { background: #f6ecec; color: var(--red); }
+  .badge.outside { background: #fdf3e0; color: #9a7420; }
+
+  .error-msg { color: var(--red); font-size: 13.5px; margin-top: 10px; }
+  .ok-msg { color: var(--green); font-size: 13.5px; margin-top: 10px; }
+  .muted { color: var(--ink-soft); font-size: 13px; }
+
+  .login-wrap { max-width: 380px; margin: 60px auto; }
+  .stat { font-weight: 700; color: var(--navy); }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">교육훈련 통합 신청 <span>관리자</span></div>
+  <button id="logout-btn" style="display:none" onclick="logout()">로그아웃</button>
+</header>
+
+<main id="app"></main>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxdmjhogAVaMgfEuxOF2PBhR8VA7FRLqCgkwhmRHXvzMA3r-IDkpHCf99kXT84OYKKvqQ/exec';
+
+const app = document.getElementById('app');
+let PW = sessionStorage.getItem('adminPw') || '';
+let courses = [];
+
+async function api(payload) {
+  payload.password = PW;
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+  return res.json();
+}
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtPhone(p) {
+  const d = String(p || '').replace(/\D/g, '');
+  if (d.length === 11) return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
+  if (d.length === 10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
+  return p || '';
+}
+
+/* ───────── 로그인 ───────── */
+function showLogin(msg) {
+  document.getElementById('logout-btn').style.display = 'none';
+  app.innerHTML = `
+    <div class="login-wrap card">
+      <div class="section-title">관리자 로그인</div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input id="pw" type="password" onkeydown="if(event.key==='Enter')login()">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="login()">로그인</button>
+      <div class="error-msg" id="login-err">${esc(msg || '')}</div>
+    </div>`;
+  document.getElementById('pw').focus();
+}
+
+async function login() {
+  PW = document.getElementById('pw').value;
+  const err = document.getElementById('login-err');
+  err.textContent = '확인 중…';
+  try {
+    const data = await api({ action: 'adminGetCourses' });
+    if (!data.ok) { err.textContent = data.error || '인증 실패'; return; }
+    sessionStorage.setItem('adminPw', PW);
+    courses = data.courses;
+    showDashboard();
+  } catch (e) { err.textContent = '연결 오류가 발생했습니다.'; }
+}
+
+function logout() {
+  PW = ''; sessionStorage.removeItem('adminPw'); showLogin();
+}
+
+/* ───────── 대시보드 ───────── */
+async function loadCourses() {
+  const data = await api({ action: 'adminGetCourses' });
+  if (!data.ok) throw new Error(data.error);
+  courses = data.courses;
+}
+
+async function showDashboard() {
+  document.getElementById('logout-btn').style.display = '';
+  app.innerHTML = '<div class="card muted">불러오는 중…</div>';
+  try { await loadCourses(); } catch (e) { showLogin('세션이 만료되었습니다. 다시 로그인해 주세요.'); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let rows = courses.map((c, i) => {
+    const cap = c.capacity > 0 ? `${c.applied} / ${c.capacity}` : `${c.applied}`;
+    let badge;
+    if (c.status !== '모집중') badge = '<span class="badge closed">' + esc(c.status) + '</span>';
+    else if (c.full) badge = '<span class="badge full">정원마감</span>';
+    else if (c.applyStart && today < c.applyStart) badge = '<span class="badge outside">오픈 전</span>';
+    else if (c.applyEnd && today > c.applyEnd) badge = '<span class="badge outside">기간 종료</span>';
+    else badge = '<span class="badge open">모집중</span>';
+    return `
+      <tr>
+        <td>${esc(c.courseId)}</td>
+        <td><b>${esc(c.name)}</b>${c.formType ? ' <span class="muted">[' + esc(c.formType) + ']</span>' : ''}</td>
+        <td>${esc(c.applyStart || '')} ~ ${esc(c.applyEnd || '')}</td>
+        <td class="stat">${cap}</td>
+        <td>${badge}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="showApplications(${i})">명단</button>
+          <button class="btn btn-sm btn-line" onclick="showCourseForm(${i})">수정</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="section-title">
+        과정 현황
+        <div class="toolbar">
+          <button class="btn btn-sm btn-line" onclick="showDashboard()">새로고침</button>
+          <button class="btn btn-sm btn-gold" onclick="showCourseForm(-1)">+ 새 과정 등록</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>과정ID</th><th>과정명</th><th>신청기간</th><th>신청/정원</th><th>상태</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" class="muted">등록된 과정이 없습니다.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ───────── 과정 등록/수정 ───────── */
+function showCourseForm(i) {
+  const c = i >= 0 ? courses[i] : {
+    courseId: '', name: '', description: '', period: '', applyStart: '', applyEnd: '',
+    capacity: 0, status: '모집중', extraQuestion: '', sections: [], eligibility: '전체', formType: ''
+  };
+  const isEdit = i >= 0;
+  app.innerHTML = `
+    <button class="btn btn-sm btn-line" onclick="showDashboard()">← 과정 현황으로</button>
+    <div class="card" style="margin-top:12px;max-width:720px">
+      <div class="section-title">${isEdit ? '과정 수정' : '새 과정 등록'}</div>
+      <div class="grid2">
+        <div class="field">
+          <label>과정ID ${isEdit ? '(수정 불가)' : '(예: 2026BS01)'}</label>
+          <input id="c-id" type="text" value="${esc(c.courseId)}" ${isEdit ? 'readonly style="background:var(--paper)"' : ''}>
+        </div>
+        <div class="field">
+          <label>과정명</label>
+          <input id="c-name" type="text" value="${esc(c.name)}">
+        </div>
+      </div>
+      <div class="field">
+        <label>설명</label>
+        <input id="c-desc" type="text" value="${esc(c.description)}">
+      </div>
+      <div class="grid3">
+        <div class="field">
+          <label>교육기간 (자유 입력)</label>
+          <input id="c-period" type="text" placeholder="예: 7/5 ~ 8/23 (8주)" value="${esc(c.period)}">
+        </div>
+        <div class="field">
+          <label>신청 시작일</label>
+          <input id="c-start" type="date" value="${esc(c.applyStart)}">
+        </div>
+        <div class="field">
+          <label>신청 마감일</label>
+          <input id="c-end" type="date" value="${esc(c.applyEnd)}">
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="field">
+          <label>정원 (0 = 무제한)</label>
+          <input id="c-cap" type="number" min="0" value="${esc(c.capacity)}">
+        </div>
+        <div class="field">
+          <label>상태</label>
+          <select id="c-status">
+            <option ${c.status === '모집중' ? 'selected' : ''}>모집중</option>
+            <option ${c.status === '마감' ? 'selected' : ''}>마감</option>
+            <option ${c.status === '숨김' ? 'selected' : ''}>숨김</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>신청자격</label>
+          <select id="c-elig">
+            <option value="전체" ${c.eligibility === '전체' ? 'selected' : ''}>전체 (누구나)</option>
+            <option value="교인" ${c.eligibility === '교인' ? 'selected' : ''}>등록 교인만</option>
+            <option value="세례교인" ${c.eligibility === '세례교인' ? 'selected' : ''}>세례교인만 (입교 포함)</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>분반 (쉼표로 구분, 없으면 비움)</label>
+          <input id="c-sections" type="text" placeholder="예: 주일오전반, 화요오전반" value="${esc((c.sections || []).join(', '))}">
+        </div>
+        <div class="field">
+          <label>신청서유형</label>
+          <select id="c-form">
+            <option value="" ${!c.formType ? 'selected' : ''}>기본 신청서</option>
+            <option value="유아세례" ${c.formType === '유아세례' ? 'selected' : ''}>유아세례 (자녀·배우자 정보 포함)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>추가 질문 (없으면 비움)</label>
+        <input id="c-extra" type="text" placeholder="예: 교재신청 여부" value="${esc(c.extraQuestion)}">
+      </div>
+      <button class="btn btn-gold" id="c-save" onclick="saveCourse(${isEdit})">${isEdit ? '수정 저장' : '과정 등록'}</button>
+      <span class="error-msg" id="c-err"></span><span class="ok-msg" id="c-ok"></span>
+    </div>`;
+}
+
+async function saveCourse(isEdit) {
+  const err = document.getElementById('c-err'), ok = document.getElementById('c-ok');
+  const btn = document.getElementById('c-save');
+  err.textContent = ''; ok.textContent = '';
+  const course = {
+    courseId: document.getElementById('c-id').value.trim(),
+    name: document.getElementById('c-name').value.trim(),
+    description: document.getElementById('c-desc').value.trim(),
+    period: document.getElementById('c-period').value.trim(),
+    applyStart: document.getElementById('c-start').value,
+    applyEnd: document.getElementById('c-end').value,
+    capacity: document.getElementById('c-cap').value,
+    status: document.getElementById('c-status').value,
+    eligibility: document.getElementById('c-elig').value,
+    sections: document.getElementById('c-sections').value.trim(),
+    formType: document.getElementById('c-form').value,
+    extraQuestion: document.getElementById('c-extra').value.trim()
+  };
+  if (!course.courseId || !course.name) { err.textContent = '과정ID와 과정명은 필수입니다.'; return; }
+  if (!isEdit && courses.some(c => c.courseId === course.courseId)) {
+    err.textContent = '이미 사용 중인 과정ID입니다.'; return;
+  }
+  btn.disabled = true;
+  try {
+    const data = await api({ action: 'adminSaveCourse', course });
+    if (!data.ok) { err.textContent = data.error; btn.disabled = false; return; }
+    ok.textContent = data.message + ' 과정 현황으로 돌아갑니다…';
+    setTimeout(showDashboard, 900);
+  } catch (e) { err.textContent = '저장 중 오류가 발생했습니다.'; btn.disabled = false; }
+}
+
+/* ───────── 신청자 명단 ───────── */
+let currentCourse = null;
+let currentApps = [];
+
+async function showApplications(i) {
+  currentCourse = courses[i];
+  app.innerHTML = '<div class="card muted">명단을 불러오는 중…</div>';
+  try {
+    const data = await api({ action: 'adminGetApplications', courseId: currentCourse.courseId });
+    if (!data.ok) throw new Error(data.error);
+    currentApps = data.applications;
+  } catch (e) {
+    app.innerHTML = '<div class="card error-msg">명단을 불러오지 못했습니다.</div>'; return;
+  }
+  renderApplications();
+}
+
+function parents_(a) {
+  const appReg = a.isMember === 'Y' ? '등록' : '미등록';
+  const appBap = currentCourse.eligibility === '세례교인' ? '세례·입교' : '';
+  const applicant = { name: a.name, phone: a.phone, reg: appReg, bap: appBap };
+  const spouse = { name: a.spouseName, phone: a.spousePhone, reg: a.spouseRegistered, bap: a.spouseBaptized };
+  return a.applicantRole === '엄마' ? { f: spouse, m: applicant } : { f: applicant, m: spouse };
+}
+
+function renderApplications() {
+  const c = currentCourse;
+  const isBaby = c.formType === '유아세례';
+  const active = currentApps.filter(a => a.status !== '취소');
+
+  let head, rows;
+  if (isBaby) {
+    head = `<th>신청일시</th>${c.sections.length ? '<th>분반</th>' : ''}<th>자녀이름</th><th>성별</th><th>자녀 생년월일</th>
+            <th>아빠</th><th>아빠 연락처</th><th>등록</th><th>세례</th>
+            <th>엄마</th><th>엄마 연락처</th><th>등록</th><th>세례</th><th>상태</th><th></th>`;
+    rows = currentApps.map(a => {
+      const p = parents_(a);
+      return `<tr class="${a.status === '취소' ? 'cancelled' : ''}">
+        <td>${esc(a.timestamp)}</td>
+        ${c.sections.length ? '<td>' + esc(a.section) + '</td>' : ''}
+        <td><b>${esc(a.childName)}</b></td><td>${esc(a.childGender)}</td><td>${esc(a.childBirth)}</td>
+        <td>${esc(p.f.name)}</td><td>${esc(fmtPhone(p.f.phone))}</td><td>${esc(p.f.reg)}</td><td>${esc(p.f.bap)}</td>
+        <td>${esc(p.m.name)}</td><td>${esc(fmtPhone(p.m.phone))}</td><td>${esc(p.m.reg)}</td><td>${esc(p.m.bap)}</td>
+        <td>${esc(a.status)}</td>
+        <td>${a.status !== '취소' ? `<button class="btn btn-sm btn-danger" onclick="cancelApp(${a.rowId}, '${esc(a.name)}')">취소</button>` : ''}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    head = `<th>신청일시</th>${c.sections.length ? '<th>분반</th>' : ''}<th>이름</th><th>전화번호</th><th>생년월일</th><th>성별</th><th>초장</th><th>교적</th>
+            ${c.extraQuestion ? '<th>' + esc(c.extraQuestion) + '</th>' : ''}<th>상태</th><th></th>`;
+    rows = currentApps.map(a => `
+      <tr class="${a.status === '취소' ? 'cancelled' : ''}">
+        <td>${esc(a.timestamp)}</td>
+        ${c.sections.length ? '<td>' + esc(a.section) + '</td>' : ''}
+        <td><b>${esc(a.name)}</b></td><td>${esc(fmtPhone(a.phone))}</td><td>${esc(a.birth)}</td><td>${esc(a.gender)}</td>
+        <td>${esc(a.group)}</td><td>${esc(a.isMember)}</td>
+        ${c.extraQuestion ? '<td>' + esc(a.extraAnswer) + '</td>' : ''}
+        <td>${esc(a.status)}</td>
+        <td>${a.status !== '취소' ? `<button class="btn btn-sm btn-danger" onclick="cancelApp(${a.rowId}, '${esc(a.name)}')">취소</button>` : ''}</td>
+      </tr>`).join('');
+  }
+
+  // 분반별 요약
+  let sectionSummary = '';
+  if (c.sections.length) {
+    const counts = {};
+    active.forEach(a => { counts[a.section] = (counts[a.section] || 0) + 1; });
+    sectionSummary = '<div class="muted" style="margin-bottom:10px">분반별: ' +
+      c.sections.map(s => `${esc(s)} <b>${counts[s] || 0}명</b>`).join(' · ') + '</div>';
+  }
+
+  app.innerHTML = `
+    <button class="btn btn-sm btn-line" onclick="showDashboard()">← 과정 현황으로</button>
+    <div class="card" style="margin-top:12px">
+      <div class="section-title">
+        ${esc(c.name)} — 신청자 <span class="stat" style="margin-left:6px">${active.length}명</span>
+        <div class="toolbar">
+          <button class="btn btn-sm btn-line" onclick="showApplications(${courses.indexOf(c)})">새로고침</button>
+          <button class="btn btn-sm btn-gold" onclick="downloadCSV()">CSV 다운로드</button>
+        </div>
+      </div>
+      ${sectionSummary}
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${head}</tr></thead>
+          <tbody>${rows || '<tr><td colspan="15" class="muted">아직 신청자가 없습니다.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function cancelApp(rowId, name) {
+  if (!confirm(name + ' 님의 신청을 취소 처리할까요?\n(행이 삭제되지 않고 상태만 "취소"로 바뀝니다)')) return;
+  const data = await api({ action: 'adminCancelApplication', rowId });
+  if (!data.ok) { alert(data.error || '취소 처리에 실패했습니다.'); return; }
+  showApplications(courses.indexOf(currentCourse));
+}
+
+function downloadCSV() {
+  const c = currentCourse;
+  const isBaby = c.formType === '유아세례';
+  let header, lines;
+  if (isBaby) {
+    header = ['신청일시', '분반', '자녀이름', '자녀성별', '자녀생년월일',
+      '아빠이름', '아빠연락처', '아빠등록', '아빠세례',
+      '엄마이름', '엄마연락처', '엄마등록', '엄마세례', '상태'];
+    lines = currentApps.map(a => {
+      const p = parents_(a);
+      return [a.timestamp, a.section, a.childName, a.childGender, a.childBirth,
+        p.f.name, fmtPhone(p.f.phone), p.f.reg, p.f.bap,
+        p.m.name, fmtPhone(p.m.phone), p.m.reg, p.m.bap, a.status];
+    });
+  } else {
+    header = ['신청일시', '분반', '이름', '전화번호', '생년월일', '성별', '초장', '교적매칭', '추가질문답변', '상태'];
+    lines = currentApps.map(a => [a.timestamp, a.section, a.name, fmtPhone(a.phone), a.birth, a.gender, a.group, a.isMember, a.extraAnswer, a.status]);
+  }
+  const csv = '\uFEFF' + [header, ...lines]
+    .map(row => row.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = c.name + '_신청자명단.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ───────── 시작 ───────── */
+if (PW) {
+  api({ action: 'adminGetCourses' }).then(d => {
+    if (d.ok) { courses = d.courses; showDashboard(); }
+    else showLogin();
+  }).catch(() => showLogin());
+} else {
+  showLogin();
+}
+</script>
+</body>
+</html>

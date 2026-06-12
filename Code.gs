@@ -123,10 +123,12 @@ function verifyMember_(req) {
     return { ok: false, error: '이름과 전화번호 뒤 4자리를 입력해 주세요.' };
   }
 
+  const cleanInput = name.replace(/\s+/g, '');
   const members = readSheet_(SHEET_MEMBERS);
   const matches = members.filter(m => {
     const phone = digits_(m['전화번호']);
-    return String(m['이름']).trim() === name && phone.slice(-4) === last4;
+    const cleanName = String(m['이름']).replace(/\s+/g, '');
+    return cleanName.startsWith(cleanInput) && phone.slice(-4) === last4;
   });
 
   if (matches.length === 0) {
@@ -373,9 +375,11 @@ function digits_(v) { return String(v || '').replace(/\D/g, ''); }
 /** 교적 재대조: 이름이 같고, (전화번호 뒤4자리 또는 생년월일)이 일치하는 교인 찾기 */
 function findMember_(name, phone, birth) {
   const last4 = digits_(phone).slice(-4);
+  const cleanInput = String(name || '').replace(/\s+/g, '');
   const members = readSheet_(SHEET_MEMBERS);
   return members.find(m => {
-    if (String(m['이름']).trim() !== name) return false;
+    const cleanName = String(m['이름']).replace(/\s+/g, '');
+    if (!cleanName.startsWith(cleanInput)) return false;
     if (last4 && digits_(m['전화번호']).slice(-4) === last4) return true;
     if (birth && birthStr_(m['생년월일']) === birth) return true;
     return false;

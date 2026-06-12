@@ -63,8 +63,11 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  // 간단한 상태 확인용
-  return json_({ ok: true, service: '교육신청시스템', time: new Date().toISOString() });
+  // page 파라미터가 'admin'이면 admin.html을, 그렇지 않으면 index.html을 보여줍니다.
+  const page = (e.parameter && e.parameter.page === 'admin') ? 'admin' : 'index';
+  return HtmlService.createHtmlOutputFromFile(page)
+    .setTitle(page === 'admin' ? '관리자 페이지' : '교육훈련 통합 신청')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 // ─────────────────────────────────────────────

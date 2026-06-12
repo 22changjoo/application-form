@@ -9,6 +9,7 @@
  *      (신청서유형: 비움 = 기본 신청서 / '유아세례' = 자녀·배우자 정보를 함께 받는 확장 신청서)
  *   3) applications : 타임스탬프 | 과정ID | 과정명 | 분반 | 이름 | 전화번호 | 생년월일 | 성별 | 초장 | 교적매칭 | 추가질문답변 | 상태
  *                     | 신청자구분 | 자녀이름 | 자녀성별 | 자녀생년월일 | 배우자이름 | 배우자연락처 | 배우자등록 | 배우자세례
+ *                     | 개인정보동의 | 동의일시   ← 헤더가 없으면 신청 저장 시 자동으로 추가됨
  *
  * 배포: 배포 > 새 배포 > 웹 앱
  *   - 실행 사용자: 나
@@ -174,9 +175,13 @@ function submitApplication_(req) {
   const spousePhone = digits_(req.spousePhone || '');
   const spouseRegistered = String(req.spouseRegistered || '').trim();
   const spouseBaptized = String(req.spouseBaptized || '').trim();
+  const privacyConsent = req.privacyConsent === true;
 
   if (!courseId || !name || phone.length < 9) {
     return { ok: false, error: '필수 정보(과정, 이름, 전화번호)를 확인해 주세요.' };
+  }
+  if (!privacyConsent) {
+    return { ok: false, error: '개인정보 수집·이용에 동의해 주세요.' };
   }
 
   // 동시 신청 경합 방지
@@ -221,11 +226,13 @@ function submitApplication_(req) {
     if (dup) return { ok: false, error: '이미 신청하신 과정입니다.' };
 
     const sheet = ss_().getSheetByName(SHEET_APPS);
+    ensureConsentColumns_(sheet);
     sheet.appendRow([
       new Date(), courseId, course.name, section, name, phone, birth, gender, group,
       isMember ? 'Y' : 'N(교적외)', extraAnswer, '신청',
       applicantRole, childName, childGender, childBirth,
-      spouseName, spousePhone, spouseRegistered, spouseBaptized
+      spouseName, spousePhone, spouseRegistered, spouseBaptized,
+      'Y', Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss')
     ]);
 
     return { ok: true, message: '신청이 완료되었습니다.' };
@@ -297,7 +304,9 @@ function getApplications_(courseId) {
     spouseName: a['배우자이름'] || '',
     spousePhone: String(a['배우자연락처'] || ''),
     spouseRegistered: a['배우자등록'] || '',
-    spouseBaptized: a['배우자세례'] || ''
+    spouseBaptized: a['배우자세례'] || '',
+    privacyConsent: a['개인정보동의'] || '',
+    consentAt: dateTimeStr_(a['동의일시'])
   }));
   const filtered = courseId ? apps.filter(a => a.courseId === String(courseId)) : apps;
   return { ok: true, applications: filtered };
@@ -333,6 +342,18 @@ function readSheet_(name) {
       header.forEach((h, i) => obj[h] = r[i]);
       return obj;
     });
+}
+
+/** applications 시트에 개인정보 동의 기록용 헤더(개인정보동의·동의일시)가 없으면 끝에 추가 */
+function ensureConsentColumns_(sheet) {
+  const lastCol = sheet.getLastColumn();
+  const header = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
+  ['개인정보동의', '동의일시'].forEach(name => {
+    if (header.indexOf(name) === -1) {
+      header.push(name);
+      sheet.getRange(1, header.length).setValue(name);
+    }
+  });
 }
 
 /** 과정별 유효 신청 수 */

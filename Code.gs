@@ -5,8 +5,11 @@
  *   1) members      : 이름 | 전화번호 | 생년월일 | 성별 | 초장 | 직분 | 세례여부   ← 교적 추출 데이터 붙여넣기
  *      (세례여부: Y / 세례 / 입교 → 세례교인 인정. N / 빈칸 / 유아세례만 → 미인정. 교적 값 그대로 사용 가능)
  *   2) courses      : 과정ID | 과정명 | 설명 | 교육기간 | 신청시작일 | 신청마감일 | 정원 | 상태 | 추가질문 | 분반 | 신청자격 | 신청서유형
+ *                     | 생년월일수집 | 성별수집 | 안내사항   ← 헤더가 없으면 과정 저장 시 자동으로 추가됨
  *      (신청자격: 비움 또는 '전체' = 누구나 / '교인' = 등록교인만 / '세례교인' = 세례교인만)
  *      (신청서유형: 비움 = 기본 신청서 / '유아세례' = 자녀·배우자 정보를 함께 받는 확장 신청서)
+ *      (생년월일수집·성별수집: 비움 또는 Y = 신청서에 입력칸 표시 / N = 표시 안 함)
+ *      (안내사항: 신청서 상단과 신청 완료 화면에 표시되는 여러 줄 안내문 — 계좌번호 안내 등)
  *   3) applications : 타임스탬프 | 과정ID | 과정명 | 분반 | 이름 | 전화번호 | 생년월일 | 성별 | 초장 | 교적매칭 | 추가질문답변 | 상태
  *                     | 신청자구분 | 자녀이름 | 자녀성별 | 자녀생년월일 | 배우자이름 | 배우자연락처 | 배우자등록 | 배우자세례
  *                     | 개인정보동의 | 동의일시   ← 헤더가 없으면 신청 저장 시 자동으로 추가됨
@@ -98,7 +101,10 @@ function getCourses_(includeAll) {
       extraQuestion: r['추가질문'] || '',
       sections: String(r['분반'] || '').split(',').map(s => s.trim()).filter(s => s),
       eligibility: String(r['신청자격'] || '전체').trim() || '전체',
-      formType: String(r['신청서유형'] || '').trim()
+      formType: String(r['신청서유형'] || '').trim(),
+      askBirth: String(r['생년월일수집'] || 'Y').trim().toUpperCase() !== 'N',
+      askGender: String(r['성별수집'] || 'Y').trim().toUpperCase() !== 'N',
+      notice: String(r['안내사항'] || '').trim()
     };
   });
 
@@ -226,7 +232,7 @@ function submitApplication_(req) {
     if (dup) return { ok: false, error: '이미 신청하신 과정입니다.' };
 
     const sheet = ss_().getSheetByName(SHEET_APPS);
-    ensureConsentColumns_(sheet);
+    ensureColumns_(sheet, ['개인정보동의', '동의일시']);
     sheet.appendRow([
       new Date(), courseId, course.name, section, name, phone, birth, gender, group,
       isMember ? 'Y' : 'N(교적외)', extraAnswer, '신청',
@@ -259,6 +265,7 @@ function saveCourse_(course) {
     return { ok: false, error: '과정ID와 과정명은 필수입니다.' };
   }
   const sheet = ss_().getSheetByName(SHEET_COURSES);
+  ensureColumns_(sheet, ['생년월일수집', '성별수집', '안내사항']);
   const data = sheet.getDataRange().getValues();
   const header = data[0];
   const idCol = header.indexOf('과정ID');
@@ -268,7 +275,10 @@ function saveCourse_(course) {
     course.period || '', course.applyStart || '', course.applyEnd || '',
     Number(course.capacity) || 0, course.status || '모집중',
     course.extraQuestion || '', course.sections || '', course.eligibility || '전체',
-    course.formType || ''
+    course.formType || '',
+    course.askBirth === false ? 'N' : 'Y',
+    course.askGender === false ? 'N' : 'Y',
+    course.notice || ''
   ];
 
   for (let i = 1; i < data.length; i++) {
@@ -344,11 +354,11 @@ function readSheet_(name) {
     });
 }
 
-/** applications 시트에 개인정보 동의 기록용 헤더(개인정보동의·동의일시)가 없으면 끝에 추가 */
-function ensureConsentColumns_(sheet) {
+/** 시트 헤더 행에 지정한 컬럼이 없으면 맨 끝에 순서대로 추가 */
+function ensureColumns_(sheet, names) {
   const lastCol = sheet.getLastColumn();
   const header = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
-  ['개인정보동의', '동의일시'].forEach(name => {
+  names.forEach(name => {
     if (header.indexOf(name) === -1) {
       header.push(name);
       sheet.getRange(1, header.length).setValue(name);

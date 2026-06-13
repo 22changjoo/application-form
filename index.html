@@ -305,12 +305,33 @@ function showForm(noticeText) {
     ? `<div class="greeting"><b>${esc(m.name)}</b> 님, 환영합니다.<br>교적 정보가 자동으로 입력되었습니다. 확인 후 신청해 주세요.</div>`
     : '';
   const notice = noticeText ? `<div class="notice">${esc(noticeText)}</div>` : '';
+  const courseNotice = c.notice ? `<div class="notice" style="white-space:pre-line">${esc(c.notice)}</div>` : '';
+  const birthField = c.askBirth ? `
+        <div class="field">
+          <label>생년월일</label>
+          <input id="f-birth" type="date" value="${esc(m.birth)}">
+        </div>` : '';
+  const genderField = c.askGender ? `
+        <div class="field">
+          <label>성별</label>
+          <select id="f-gender">
+            <option value="">선택</option>
+            <option value="남" ${m.gender === '남' ? 'selected' : ''}>남</option>
+            <option value="여" ${m.gender === '여' ? 'selected' : ''}>여</option>
+          </select>
+        </div>` : '';
+  const birthGender = (c.askBirth && c.askGender)
+    ? `<div class="row2">${birthField}${genderField}</div>`
+    : birthField + genderField;
+  const personalItems = ['이름', '전화번호',
+    ...(c.askBirth ? ['생년월일'] : []), ...(c.askGender ? ['성별'] : []),
+    '초장(소속)'].join(', ');
   app.innerHTML = `
     <button class="back-btn" onclick="showList()">← 과정 목록으로</button>
     <div class="card">
       <div class="form-title">${esc(c.name)} 신청서</div>
       <div class="form-sub">${esc(c.period || '')}</div>
-      ${greeting}${notice}
+      ${greeting}${courseNotice}${notice}
       ${c.sections && c.sections.length > 0 ? `
       <div class="field">
         <label>분반 선택</label>
@@ -327,20 +348,7 @@ function showForm(noticeText) {
         <label>전화번호</label>
         <input id="f-phone" type="tel" inputmode="numeric" placeholder="01012345678" value="${esc(m.phone)}">
       </div>
-      <div class="row2">
-        <div class="field">
-          <label>생년월일</label>
-          <input id="f-birth" type="date" value="${esc(m.birth)}">
-        </div>
-        <div class="field">
-          <label>성별</label>
-          <select id="f-gender">
-            <option value="">선택</option>
-            <option value="남" ${m.gender === '남' ? 'selected' : ''}>남</option>
-            <option value="여" ${m.gender === '여' ? 'selected' : ''}>여</option>
-          </select>
-        </div>
-      </div>
+      ${birthGender}
       <div class="field">
         <label>초장 <span style="font-weight:400;color:var(--ink-soft)">(없으면 비워두세요)</span></label>
         <input id="f-group" type="text" value="${esc(m.group)}">
@@ -420,8 +428,8 @@ function showForm(noticeText) {
           </ul>
           <h4>2. 수집 항목</h4>
           <ul>
-            <li>이름, 전화번호, 생년월일, 성별, 초장(소속)</li>
-            <li>유아세례교육의 경우: 자녀의 이름·성별·생년월일, 배우자의 이름·연락처·교회 등록 및 세례 여부</li>
+            <li>${personalItems}</li>
+            ${c.formType === '유아세례' ? '<li>자녀의 이름·성별·생년월일, 배우자의 이름·연락처·교회 등록 및 세례 여부</li>' : ''}
           </ul>
           <h4>3. 보유 및 이용 기간</h4>
           <ul>
@@ -453,8 +461,8 @@ async function submitApp() {
     section: document.getElementById('f-section') ? document.getElementById('f-section').value : '',
     name: document.getElementById('f-name').value.trim(),
     phone: document.getElementById('f-phone').value.trim(),
-    birth: document.getElementById('f-birth').value,
-    gender: document.getElementById('f-gender').value,
+    birth: document.getElementById('f-birth') ? document.getElementById('f-birth').value : '',
+    gender: document.getElementById('f-gender') ? document.getElementById('f-gender').value : '',
     group: document.getElementById('f-group').value.trim(),
     extraAnswer: document.getElementById('f-extra') ? document.getElementById('f-extra').value.trim() : '',
     isMember: isMember,
@@ -500,6 +508,7 @@ function showDone(name) {
       <div class="mark">✓</div>
       <h2>신청이 완료되었습니다</h2>
       <p><b>${esc(name)}</b> 님의 <b>${esc(current.name)}</b> 신청이<br>정상적으로 접수되었습니다.</p>
+      ${current.notice ? `<div class="notice" style="white-space:pre-line;text-align:left;margin-top:20px">${esc(current.notice)}</div>` : ''}
       <br>
       <button class="btn btn-primary" style="max-width:240px" onclick="showList()">과정 목록으로</button>
     </div>`;

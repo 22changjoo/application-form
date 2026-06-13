@@ -41,6 +41,11 @@
     border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink);
   }
   .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--gold); }
+  .field .check {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 14px; font-weight: 400; color: var(--ink); margin: 8px 16px 0 0; cursor: pointer;
+  }
+  .field .check input { width: 16px; height: 16px; accent-color: var(--navy); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
@@ -188,7 +193,8 @@ async function showDashboard() {
 function showCourseForm(i) {
   const c = i >= 0 ? courses[i] : {
     courseId: '', name: '', description: '', period: '', applyStart: '', applyEnd: '',
-    capacity: 0, status: '모집중', extraQuestion: '', sections: [], eligibility: '전체', formType: ''
+    capacity: 0, status: '모집중', extraQuestion: '', sections: [], eligibility: '전체', formType: '',
+    askBirth: true, askGender: true, notice: ''
   };
   const isEdit = i >= 0;
   app.innerHTML = `
@@ -259,6 +265,15 @@ function showCourseForm(i) {
         </div>
       </div>
       <div class="field">
+        <label>신청서 입력 항목 (체크 해제하면 신청서에서 빠집니다)</label>
+        <label class="check"><input type="checkbox" id="c-askbirth" ${c.askBirth !== false ? 'checked' : ''}> 생년월일</label>
+        <label class="check"><input type="checkbox" id="c-askgender" ${c.askGender !== false ? 'checked' : ''}> 성별</label>
+      </div>
+      <div class="field">
+        <label>안내사항 (신청서 상단·완료 화면에 표시, 여러 줄 가능 — 없으면 비움)</label>
+        <textarea id="c-notice" rows="4" placeholder="예: 교재비 10,000원&#10;입금계좌: 국민은행 000000-00-000000 (높은뜻푸른교회)">${esc(c.notice)}</textarea>
+      </div>
+      <div class="field">
         <label>추가 질문 (없으면 비움)</label>
         <input id="c-extra" type="text" placeholder="예: 교재신청 여부" value="${esc(c.extraQuestion)}">
       </div>
@@ -283,7 +298,10 @@ async function saveCourse(isEdit) {
     eligibility: document.getElementById('c-elig').value,
     sections: document.getElementById('c-sections').value.trim(),
     formType: document.getElementById('c-form').value,
-    extraQuestion: document.getElementById('c-extra').value.trim()
+    extraQuestion: document.getElementById('c-extra').value.trim(),
+    askBirth: document.getElementById('c-askbirth').checked,
+    askGender: document.getElementById('c-askgender').checked,
+    notice: document.getElementById('c-notice').value.trim()
   };
   if (!course.courseId || !course.name) { err.textContent = '과정ID와 과정명은 필수입니다.'; return; }
   if (!isEdit && courses.some(c => c.courseId === course.courseId)) {
@@ -346,13 +364,13 @@ function renderApplications() {
       </tr>`;
     }).join('');
   } else {
-    head = `<th>신청일시</th>${c.sections.length ? '<th>분반</th>' : ''}<th>이름</th><th>전화번호</th><th>생년월일</th><th>성별</th><th>초장</th><th>교적</th>
+    head = `<th>신청일시</th>${c.sections.length ? '<th>분반</th>' : ''}<th>이름</th><th>전화번호</th>${c.askBirth ? '<th>생년월일</th>' : ''}${c.askGender ? '<th>성별</th>' : ''}<th>초장</th><th>교적</th>
             ${c.extraQuestion ? '<th>' + esc(c.extraQuestion) + '</th>' : ''}<th>상태</th><th></th>`;
     rows = currentApps.map(a => `
       <tr class="${a.status === '취소' ? 'cancelled' : ''}">
         <td>${esc(a.timestamp)}</td>
         ${c.sections.length ? '<td>' + esc(a.section) + '</td>' : ''}
-        <td><b>${esc(a.name)}</b></td><td>${esc(fmtPhone(a.phone))}</td><td>${esc(a.birth)}</td><td>${esc(a.gender)}</td>
+        <td><b>${esc(a.name)}</b></td><td>${esc(fmtPhone(a.phone))}</td>${c.askBirth ? '<td>' + esc(a.birth) + '</td>' : ''}${c.askGender ? '<td>' + esc(a.gender) + '</td>' : ''}
         <td>${esc(a.group)}</td><td>${esc(a.isMember)}</td>
         ${c.extraQuestion ? '<td>' + esc(a.extraAnswer) + '</td>' : ''}
         <td>${esc(a.status)}</td>
@@ -411,8 +429,12 @@ function downloadCSV() {
         p.m.name, fmtPhone(p.m.phone), p.m.reg, p.m.bap, a.status];
     });
   } else {
-    header = ['신청일시', '분반', '이름', '전화번호', '생년월일', '성별', '초장', '교적매칭', '추가질문답변', '상태'];
-    lines = currentApps.map(a => [a.timestamp, a.section, a.name, fmtPhone(a.phone), a.birth, a.gender, a.group, a.isMember, a.extraAnswer, a.status]);
+    header = ['신청일시', '분반', '이름', '전화번호',
+      ...(c.askBirth ? ['생년월일'] : []), ...(c.askGender ? ['성별'] : []),
+      '초장', '교적매칭', '추가질문답변', '상태'];
+    lines = currentApps.map(a => [a.timestamp, a.section, a.name, fmtPhone(a.phone),
+      ...(c.askBirth ? [a.birth] : []), ...(c.askGender ? [a.gender] : []),
+      a.group, a.isMember, a.extraAnswer, a.status]);
   }
   const csv = '\uFEFF' + [header, ...lines]
     .map(row => row.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))

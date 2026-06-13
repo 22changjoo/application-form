@@ -37,6 +37,31 @@ function setAdminPassword() {
 }
 
 // ─────────────────────────────────────────────
+// 일회성 보정: applications 시트의 전화번호·배우자연락처 열을
+// 텍스트 서식으로 바꾸고, 숫자로 저장되어 사라진 맨 앞 0을 복원합니다.
+// 에디터에서 fixPhoneNumbers 함수를 한 번 실행하세요.
+// ─────────────────────────────────────────────
+function fixPhoneNumbers() {
+  const sheet = ss_().getSheetByName(SHEET_APPS);
+  if (sheet.getLastRow() < 2) { Logger.log('데이터가 없습니다.'); return; }
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  let fixed = 0;
+  ['전화번호', '배우자연락처'].forEach(name => {
+    const col = header.indexOf(name);
+    if (col === -1) return;
+    const range = sheet.getRange(2, col + 1, sheet.getLastRow() - 1, 1);
+    range.setNumberFormat('@'); // 열을 텍스트 서식으로
+    const values = range.getValues().map(r => {
+      let s = String(r[0] || '').replace(/\D/g, '');
+      if (s && s.charAt(0) !== '0') { s = '0' + s; fixed++; }
+      return [s];
+    });
+    range.setValues(values);
+  });
+  Logger.log(fixed + '건의 전화번호에 맨 앞 0을 복원했습니다.');
+}
+
+// ─────────────────────────────────────────────
 // 진입점
 // ─────────────────────────────────────────────
 function doPost(e) {
@@ -233,11 +258,12 @@ function submitApplication_(req) {
 
     const sheet = ss_().getSheetByName(SHEET_APPS);
     ensureColumns_(sheet, ['개인정보동의', '동의일시']);
+    // 전화번호 앞에 작은따옴표(')를 붙여 텍스트로 저장 → 맨 앞 0이 사라지지 않음
     sheet.appendRow([
-      new Date(), courseId, course.name, section, name, phone, birth, gender, group,
+      new Date(), courseId, course.name, section, name, "'" + phone, birth, gender, group,
       isMember ? 'Y' : 'N(교적외)', extraAnswer, '신청',
       applicantRole, childName, childGender, childBirth,
-      spouseName, spousePhone, spouseRegistered, spouseBaptized,
+      spouseName, spousePhone ? "'" + spousePhone : '', spouseRegistered, spouseBaptized,
       'Y', Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss')
     ]);
 

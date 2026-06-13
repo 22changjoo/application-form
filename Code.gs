@@ -37,6 +37,29 @@ function setAdminPassword() {
 }
 
 // ─────────────────────────────────────────────
+// 최초 1회 실행: 솔라피(SOLAPI) 문자 발송 설정
+// 1) solapi.com 가입 → 발신번호 등록 → 충전 → API Key 발급
+// 2) 아래 세 값을 채운 뒤 에디터에서 setSolapiConfig 함수를 한 번 실행
+//    (이때 "외부 서비스 연결" 권한 승인 창이 뜨면 허용)
+// 3) 실행 후에는 키를 코드에서 지워도 됩니다.
+// 설정하지 않으면 문자 발송 없이 신청만 정상 처리됩니다.
+// ─────────────────────────────────────────────
+function setSolapiConfig() {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('SOLAPI_API_KEY', '여기에API키');
+  props.setProperty('SOLAPI_API_SECRET', '여기에API시크릿');
+  props.setProperty('SOLAPI_SENDER', '여기에발신번호');  // 등록한 발신번호, 숫자만 (예: 0212345678)
+  Logger.log('솔라피 설정이 저장되었습니다.');
+}
+
+// 발송 테스트: 아래 번호를 본인 휴대폰으로 바꾼 뒤 에디터에서 실행
+function testSms() {
+  const to = '01000000000';
+  sendSms_(to, '[높은뜻푸른교회]\n문자 발송 테스트입니다.');
+  Logger.log('테스트 문자를 보냈습니다: ' + to);
+}
+
+// ─────────────────────────────────────────────
 // 일회성 보정: applications 시트의 전화번호·배우자연락처 열을
 // 텍스트 서식으로 바꾸고, 숫자로 저장되어 사라진 맨 앞 0을 복원합니다.
 // 에디터에서 fixPhoneNumbers 함수를 한 번 실행하세요.
@@ -267,6 +290,9 @@ function submitApplication_(req) {
       'Y', Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss')
     ]);
 
+    // 접수 확인 문자 발송 (솔라피 설정 시에만, 실패해도 신청은 정상 처리)
+    sendConfirmSms_(phone, name, course, section);
+
     return { ok: true, message: '신청이 완료되었습니다.' };
   } finally {
     lock.releaseLock();
@@ -441,6 +467,54 @@ function findMember_(name, phone, birth) {
     if (birth && birthStr_(m['생년월일']) === birth) return true;
     return false;
   }) || null;
+}
+
+// ─────────────────────────────────────────────
+// 문자 발송 (솔라피 SOLAPI)
+// ─────────────────────────────────────────────
+
+/** 신청 접수 확인 문자 내용 구성 후 발송. 솔라피 미설정·발송 실패 시에도 신청 처리는 유지 */
+function sendConfirmSms_(to, name, course, section) {
+  let text = '[높은뜻푸른교회]\n' + name + ' 님의 「' + course.name + '」 신청이 접수되었습니다.';
+  if (section) text += '\n- 분반: ' + section;
+  if (course.period) text += '\n- 교육기간: ' + course.period;
+  if (course.notice) text += '\n\n' + course.notice;
+  try {
+    sendSms_(to, text);
+  } catch (err) {
+    Logger.log('접수 확인 문자 발송 실패(' + to + '): ' + err.message);
+  }
+}
+
+/** 솔라피 단건 발송. 90바이트(한글 약 45자) 초과 시 LMS로 자동 전환 */
+function sendSms_(to, text) {
+  const props = PropertiesService.getScriptProperties();
+  const apiKey = props.getProperty('SOLAPI_API_KEY');
+  const apiSecret = props.getProperty('SOLAPI_API_SECRET');
+  const sender = props.getProperty('SOLAPI_SENDER');
+  if (!apiKey || !apiSecret || !sender) return; // 미설정 시 조용히 건너뜀
+
+  const date = new Date().toISOString();
+  const salt = Utilities.getUuid();
+  const signature = Utilities.computeHmacSha256Signature(date + salt, apiSecret)
+    .map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) bytes += text.charCodeAt(i) > 127 ? 2 : 1;
+  const message = { to: digits_(to), from: digits_(sender), text: text };
+  if (bytes > 90) { message.type = 'LMS'; message.subject = '교육·훈련 신청 접수'; }
+
+  const res = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      Authorization: 'HMAC-SHA256 apiKey=' + apiKey + ', date=' + date +
+        ', salt=' + salt + ', signature=' + signature
+    },
+    payload: JSON.stringify({ message: message }),
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
 }
 
 function startOfDay_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }

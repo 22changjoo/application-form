@@ -37,13 +37,21 @@ function setAdminPassword() {
 }
 
 // ─────────────────────────────────────────────
-// 최초 1회 실행: 솔라피(SOLAPI) 문자 발송 설정
-// 1) solapi.com 가입 → 발신번호 등록 → 충전 → API Key 발급
-// 2) 아래 세 값을 채운 뒤 에디터에서 setSolapiConfig 함수를 한 번 실행
-//    (이때 "외부 서비스 연결" 권한 승인 창이 뜨면 허용)
-// 3) 실행 후에는 키를 코드에서 지워도 됩니다.
-// 설정하지 않으면 문자 발송 없이 신청만 정상 처리됩니다.
+// 솔라피(SOLAPI) 카카오 알림톡 / 문자 발송 설정
+//
+// 발신프로필(pfId)·템플릿 ID는 비밀값이 아니라 아래 상수로 둡니다.
+// (채널이나 템플릿이 바뀌면 이 세 줄만 수정하세요.)
+// 비밀값(API 키·시크릿)과 발신번호만 Script Properties에 저장합니다:
+//   1) solapi.com 가입 → 카카오 채널 연동 → 발신번호 등록 → 충전 → API Key 발급
+//   2) 아래 setSolapiConfig의 세 값을 채운 뒤 에디터에서 한 번 실행
+//      (이때 "외부 서비스 연결" 권한 승인 창이 뜨면 허용)
+//   3) 실행 후에는 키를 코드에서 지워도 됩니다.
+// 설정하지 않으면 발송 없이 신청만 정상 처리됩니다.
 // ─────────────────────────────────────────────
+const SOLAPI_PFID = 'KA01PF260614014929669UDEZN64KtqI';
+const SOLAPI_TEMPLATE_SECTION   = 'KA01TP260614020219299IaXBHscqWkv';   // 분반 있는 과정용
+const SOLAPI_TEMPLATE_NOSECTION = 'KA01TP2606140159198291QHEry4S7gf';   // 분반 없는 과정용(세례·유아세례 등)
+
 function setSolapiConfig() {
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SOLAPI_API_KEY', '여기에API키');
@@ -52,11 +60,23 @@ function setSolapiConfig() {
   Logger.log('솔라피 설정이 저장되었습니다.');
 }
 
-// 발송 테스트: 아래 번호를 본인 휴대폰으로 바꾼 뒤 에디터에서 실행
+// 문자(SMS/LMS) 발송 테스트: 아래 번호를 본인 휴대폰으로 바꾼 뒤 실행
 function testSms() {
   const to = '01000000000';
   sendSms_(to, '[높은뜻푸른교회]\n문자 발송 테스트입니다.');
   Logger.log('테스트 문자를 보냈습니다: ' + to);
+}
+
+// 알림톡 발송 테스트: 아래 번호를 본인 휴대폰으로 바꾼 뒤 실행
+function testAlimtalk() {
+  const to = '01000000000';
+  const course = {
+    name: '제자훈련', period: '7/5 ~ 8/23 (8주)',
+    notice: '교재비 10,000원\n국민은행 000000-00-000000 (높은뜻푸른교회)',
+    sections: ['주일오전반']
+  };
+  sendConfirmSms_(to, '홍길동', course, '주일오전반');
+  Logger.log('테스트 알림톡을 보냈습니다: ' + to);
 }
 
 // ─────────────────────────────────────────────
@@ -473,36 +493,88 @@ function findMember_(name, phone, birth) {
 // 문자 발송 (솔라피 SOLAPI)
 // ─────────────────────────────────────────────
 
-/** 신청 접수 확인 문자 내용 구성 후 발송. 솔라피 미설정·발송 실패 시에도 신청 처리는 유지 */
+/**
+ * 신청 접수 확인 발송: 카카오 알림톡 우선, 실패 시 문자(LMS)로 자동 대체.
+ * 솔라피 미설정·발송 실패 시에도 신청 처리는 그대로 유지됩니다.
+ */
 function sendConfirmSms_(to, name, course, section) {
+  const hasSection = course.sections && course.sections.length > 0;
+  // 빈 변수는 알림톡 발송 실패의 원인이 되므로 기본값으로 채움
+  const period = course.period || '추후 안내';
+  const notice = course.notice || '없음';
+
+  // 알림톡 실패 시 대체 발송될 문자 본문
   let text = '[높은뜻푸른교회]\n' + name + ' 님의 「' + course.name + '」 신청이 접수되었습니다.';
-  if (section) text += '\n- 분반: ' + section;
-  if (course.period) text += '\n- 교육기간: ' + course.period;
-  if (course.notice) text += '\n\n' + course.notice;
+  if (hasSection && section) text += '\n▶ 분반: ' + section;
+  text += '\n▶ 교육기간: ' + period;
+  if (course.notice) text += '\n▶ 안내사항: ' + course.notice;
+  text += '\n\n문의: 교회사무실 02-757-2216';
+
+  // 알림톡 템플릿 변수 (템플릿 고정문구의 #{...}와 정확히 일치해야 함)
+  const variables = {
+    '#{이름}': name,
+    '#{과정명}': course.name,
+    '#{교육기간}': period,
+    '#{안내사항}': notice
+  };
+  if (hasSection) variables['#{분반}'] = section || '-';
+
   try {
-    sendSms_(to, text);
+    sendAlimtalk_(to, hasSection, variables, text);
   } catch (err) {
-    Logger.log('접수 확인 문자 발송 실패(' + to + '): ' + err.message);
+    Logger.log('접수 확인 발송 실패(' + to + '): ' + err.message);
   }
 }
 
-/** 솔라피 단건 발송. 90바이트(한글 약 45자) 초과 시 LMS로 자동 전환 */
+/**
+ * 솔라피 알림톡 발송. from/text를 함께 실어 보내 알림톡 실패 시 문자로 자동 대체됩니다.
+ * pfId·템플릿이 비어 있으면 알림톡 대신 문자로만 발송합니다.
+ */
+function sendAlimtalk_(to, hasSection, variables, fallbackText) {
+  const props = PropertiesService.getScriptProperties();
+  const sender = props.getProperty('SOLAPI_SENDER');
+  const templateId = hasSection ? SOLAPI_TEMPLATE_SECTION : SOLAPI_TEMPLATE_NOSECTION;
+
+  // 알림톡 설정이 없으면 문자로 대체
+  if (!SOLAPI_PFID || !templateId) {
+    if (fallbackText) sendSms_(to, fallbackText);
+    return;
+  }
+
+  const message = {
+    to: digits_(to),
+    kakaoOptions: { pfId: SOLAPI_PFID, templateId: templateId, variables: variables }
+  };
+  // 발신번호가 등록돼 있으면 알림톡 실패 시 문자로 대체 발송 (from+text 동봉)
+  if (sender && fallbackText) {
+    message.from = digits_(sender);
+    message.text = fallbackText;
+  }
+  solapiSend_(message);
+}
+
+/** 솔라피 단건 문자 발송. 90바이트(한글 약 45자) 초과 시 LMS로 자동 전환 */
 function sendSms_(to, text) {
+  const sender = PropertiesService.getScriptProperties().getProperty('SOLAPI_SENDER');
+  if (!sender) return; // 발신번호 미설정 시 조용히 건너뜀
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) bytes += text.charCodeAt(i) > 127 ? 2 : 1;
+  const message = { to: digits_(to), from: digits_(sender), text: text };
+  if (bytes > 90) { message.type = 'LMS'; message.subject = '교육·훈련 신청 접수'; }
+  solapiSend_(message);
+}
+
+/** 솔라피 메시지 단건 전송 (저수준). 인증 서명 후 message 객체를 그대로 전송 */
+function solapiSend_(message) {
   const props = PropertiesService.getScriptProperties();
   const apiKey = props.getProperty('SOLAPI_API_KEY');
   const apiSecret = props.getProperty('SOLAPI_API_SECRET');
-  const sender = props.getProperty('SOLAPI_SENDER');
-  if (!apiKey || !apiSecret || !sender) return; // 미설정 시 조용히 건너뜀
+  if (!apiKey || !apiSecret) return; // 미설정 시 조용히 건너뜀
 
   const date = new Date().toISOString();
   const salt = Utilities.getUuid();
   const signature = Utilities.computeHmacSha256Signature(date + salt, apiSecret)
     .map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
-
-  let bytes = 0;
-  for (let i = 0; i < text.length; i++) bytes += text.charCodeAt(i) > 127 ? 2 : 1;
-  const message = { to: digits_(to), from: digits_(sender), text: text };
-  if (bytes > 90) { message.type = 'LMS'; message.subject = '교육·훈련 신청 접수'; }
 
   const res = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send', {
     method: 'post',
@@ -515,6 +587,11 @@ function sendSms_(to, text) {
     muteHttpExceptions: true
   });
   if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
+  // 접수는 됐지만 일부 실패한 경우 로그에 남김
+  const body = JSON.parse(res.getContentText() || '{}');
+  if (body.failedMessageList && body.failedMessageList.length) {
+    Logger.log('솔라피 일부 발송 실패: ' + res.getContentText());
+  }
 }
 
 function startOfDay_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
